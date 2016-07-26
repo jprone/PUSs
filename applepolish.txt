@@ -1,11 +1,11 @@
 #!/bin/sh
 
-# © 2009 Apple Inc.
-# Christian Lindemer - R089 Old Orchard - lindemer@apple.com
+# Christian Lindemer
 
-# Based on "missingkitty" by Chris Hyle - R095 Fifth Avenue - chyle@apple.com
+# Based on "missingkitty" by Chris Hyle
 # …in turn based on "missinglink" script by ???
-# …with some hints on automatically running from from Install.framework "rc.installer_cleanup" by pmb@apple.com
+# …with some hints on automatically running from from Install.framework "rc.installer_cleanup"
+# reposted for reference by @jprone <https://github.com/jprone/>
 
 
 # get user name(s) from pre-made files
