@@ -1,0 +1,99 @@
+#!/bin/sh
+
+# © 2009 Apple Inc.
+# Christian Lindemer - R089 Old Orchard - lindemer@apple.com
+
+# Based on "missingkitty" by Chris Hyle - R095 Fifth Avenue - chyle@apple.com
+# …in turn based on "missinglink" script by ???
+# …with some hints on automatically running from from Install.framework "rc.installer_cleanup" by pmb@apple.com
+
+
+# get user name(s) from pre-made files
+USER_NAME_FILE="/System/username_applepolish"
+USER_FULLNAME_FILE="/System/userfullname_applepolish"
+
+if [ ! -f ${USER_NAME_FILE} ]; then	# if no username file exists
+#delete all accounts
+	# delete all user home folders
+	declare -a userarray
+	userarray=( `ls /Users/ | grep -v "Shared" | grep -v "\."` )
+	for (( i = 0 ; i < ${#userarray[@]} ; i++ ));
+	do 
+		rm -Rf "/Users/${userarray[i]}/"
+		echo "User folder ${userarray[i]} deleted."
+	done
+	
+	# delete system configuration info and user/group databases
+	if [ -d /var/db/dslocal ]; then
+	     rm -rf /var/db/dslocal
+	     mkdir -p /var/db/dslocal/nodes
+	     cp -Rp /System/Library/DirectoryServices/DefaultLocalDB/Default /var/db/dslocal/nodes/
+	     cp -Rp /System/Library/DirectoryServices/DefaultLocalDB/dsmappings /var/db/dslocal/
+	fi
+    rm -rf /private/var/db/netinfo
+    rm -rf /private/var/db/openldap
+    rm -rf /private/var/db/samba
+    rm -rf /private/var/db/dhcpclient
+    rm -f /var/db/.AppleSetupDone
+    rm -rf /Library/Caches
+    rm -rf /Library/Logs
+    rm -rf /Library/Preferences
+	mkdir -p /Library/Preferences/SystemConfiguration
+	chown -R root:admin /Library/Preferences
+	chmod 775 /Library/Preferences
+	chmod 755 /Library/Preferences/SystemConfiguration
+	
+	rm -rf /etc/cups/ppd/*
+	if [ -f /etc/cups/cupsd.conf.default ]; then
+		rm -f /etc/cups/cupsd.conf
+		cp /etc/cups/cupsd.conf.default /etc/cups/cupsd.conf
+	fi
+	
+	echo "ApplePolish successfully removed all user databases."
+else
+# delete single account
+	# get user name from file
+	USER_NAME=`cat ${USER_NAME_FILE}`
+	
+	# remove home
+	rm -Rf "/Users/${USER_NAME}"
+	echo "User folder for ${USER_NAME} deleted."
+	
+	# load DS database and remove user
+	
+	/bin/launchctl load /System/Library/LaunchDaemons/com.apple.DirectoryServices.plist &
+	sleep 10 # wait for DS to load fully before we start talking to it
+	
+	#remove from admin group
+	dscl . -delete /Groups/admin GroupMembership ${USER_NAME}
+	#remove user itself
+	dscl . -delete /Users/${USER_NAME}
+		
+	echo "ApplePolish successfully removed user database for ${USER_NAME} account"
+	
+	# remove user name file
+	rm -f "${USER_NAME_FILE}"
+	
+	# remove "[username]'s Public Folder" share	
+	if [ -f ${USER_FULLNAME_FILE} ]; then	# if user full name file exists
+		USER_FULLNAME=`cat ${USER_FULLNAME_FILE}`
+		USER_PUBLIC_FOLDER="${USER_FULLNAME}'s Public Folder"
+		dscl . -delete "/SharePoints/${USER_PUBLIC_FOLDER}"
+		#remove userfullname file
+		rm -f "${USER_FULLNAME_FILE}"
+	fi
+fi
+
+
+# delete self
+# would use 'rm $1' . . . perhaps should
+rm -f /etc/rc.installer_cleanup
+
+# shut down if doing all users; reboot if doing one
+if [ -z ${USER_NAME} ]; then
+	/sbin/shutdown -h now
+else
+	reboot
+fi
+
+exit 0
